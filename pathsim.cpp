@@ -1,9 +1,12 @@
 #include <iostream>
 #include <fstream>
 
+#include <sstream>
+
 #include <assert.h>
 #include <list>
 #include <vector>
+#include <queue>
 #include <algorithm>
 #include <functional>
 #include <cmath>
@@ -47,6 +50,47 @@ double current_slope(path::iterator pathit) { // end() - 1 not allowed
 }
 
 
+inline string numfmt(double x) {
+    const int precision{8};
+    string s = std::to_string(x);
+    if (x >= 0.0) s = "+" + s;
+    if (s.length() < precision) {
+        s += string(8 - s.length(), '0');
+    } else {
+        s = s.substr(0, precision);
+    }
+
+    return s;
+}
+
+
+void pretty_print(double t, double x, double y, double v, double slope, \
+        double d_watt) {
+
+    cout << "time: " << numfmt(t) << "   distance: " << numfmt(x) << \
+            "   altitude: " << numfmt(y) << "   slope: " << numfmt(slope) << \
+            "%   redundant_pow: " << numfmt(d_watt) << "w" << endl;
+
+    // std::queue<string> items;
+    // items.push(string("time: %.6f", t));
+    // items.push(string("distance: %.6f", x));
+    // items.push(string("altitude: %.6f", y));
+    // items.push(string("slope: %.4f%", slope));
+    // items.push((string("redundant wattage: %.4f", d_watt)));
+
+    // std::stringstream ss;
+    // while (!items.empty()) {
+    //     string item = items.front();
+    //     items.pop();
+    //     ss << item;
+    //     ss << string(30, ' ');
+    //     ss << "; ";
+    // }
+
+    // cout << ss.str() << endl;
+}
+
+
 int simulate(path p, double power, double mass, double dt, bool verbose) {
         double x = 0, y = 0, v = 0, a = 0, t = 0;
 
@@ -67,9 +111,7 @@ int simulate(path p, double power, double mass, double dt, bool verbose) {
                 (power - watt_needed) / (v * mass) : 1; // m/s^2
 
             if (verbose && (print_counter++) % 10 == 0) {
-                cout << "x: " << x << "  v: " << v << \
-                "  slope: " << slope*100 << "%  t: " \
-                << t << "  d_watt: " << watt_needed << endl;
+                pretty_print(t, x, y, v, slope, 150 - watt_needed);
             }
 
 
@@ -107,20 +149,11 @@ void print_help_msg() {
             "     \t   builtin function for timed thread sleeps have limited \n"
             "     \t   ccuracy, therefore the simulation may not be quite \n"
             "     \t   real-time when precision is high.\n";
-    cout << "  -h \t prints this help message. \n";
+    cout << "  -h \t prints this help message. " << endl;
 }
 
 
 int main(int argc, char *argv[]) {
-
-    cout << "args dbg: \n";
-    for (int i = 1; i < argc; i++) {
-        cout << i << ": " << argv[i] << ", ";
-    }
-    cout << endl;
-
-   
-
     
     // parse required arguments
     if (argc < 5) {
