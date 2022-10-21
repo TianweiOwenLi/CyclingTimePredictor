@@ -230,11 +230,17 @@ int main(int argc, char *argv[]) {
     if (power <= 25.0) {
         cout << "Error: average pedaling wattage too small! \n";
         return 1;
+    } else if (power >= 2000.0) {
+        cout << "Error: wow, you have really powerful legs or motors! \n";
+        return 1;
     }
 
     double mass{strtod(argv[3], NULL)};
     if (mass <= 30.0) {
         cout << "Error: mass too small! \n";
+        return 1;
+    } else if (mass >= 2000.0) {
+        cout << "Error: how many cargos did you put on your bike? \n";
         return 1;
     }
 
