@@ -51,7 +51,7 @@ double current_slope(path::iterator pathit) { // end() - 1 not allowed
 
 
 inline string numfmt(double x) {
-    const int precision{8};
+    const int precision{6};
     string s = std::to_string(x);
     if (x >= 0.0) s = "+" + s;
     if (s.length() < precision) {
@@ -67,68 +67,71 @@ inline string numfmt(double x) {
 void pretty_print(double t, double x, double y, double v, double slope, \
         double d_watt) {
 
-    cout << "time: " << numfmt(t) << "   distance: " << numfmt(x) << \
-            "   altitude: " << numfmt(y) << "   slope: " << numfmt(slope) << \
-            "%   redundant_pow: " << numfmt(d_watt) << "w" << endl;
-
-    // std::queue<string> items;
-    // items.push(string("time: %.6f", t));
-    // items.push(string("distance: %.6f", x));
-    // items.push(string("altitude: %.6f", y));
-    // items.push(string("slope: %.4f%", slope));
-    // items.push((string("redundant wattage: %.4f", d_watt)));
-
-    // std::stringstream ss;
-    // while (!items.empty()) {
-    //     string item = items.front();
-    //     items.pop();
-    //     ss << item;
-    //     ss << string(30, ' ');
-    //     ss << "; ";
-    // }
-
-    // cout << ss.str() << endl;
+    cout << "time: " << numfmt(t) << "s   dist: " << numfmt(x) << \
+            "m   altitude: " << numfmt(y) << "m   speed: " << numfmt(v * 3.6) \
+            << "km/h   slope: " << numfmt(slope * 100)\
+            << "%   redundant_pow: " << numfmt(d_watt) << "w" << endl;
 }
 
 
-int simulate(path p, double power, double mass, double dt, bool verbose) {
-        double x = 0, y = 0, v = 0, a = 0, t = 0;
+double simulate(path p, double power, double mass, double dt, bool verbose, \
+        bool realtime) {
 
-        auto chkpoint = p.begin();
-        double slope = current_slope(chkpoint);
+    double x = 0, y = 0, v = 0, a = 0, t = 0;
+    auto chkpoint = p.begin();
+    double slope = current_slope(chkpoint);
 
-        int print_counter = 0;
+    int last_printed_int_time = -1;
 
-        for (;chkpoint + 1 != p.end(); t += dt) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    for (;chkpoint + 1 != p.end(); t += dt) {
 
-            x += v * dt;
-            y = (slope * (x - chkpoint->x)) + chkpoint->y;
-            v += a * dt;
-
-            double watt_needed = watt_kmh(v * 3.6, slope, mass);
-            a = (v >= 1.5)? \
-                (power - watt_needed) / (v * mass) : 1; // m/s^2
-
-            if (verbose && (print_counter++) % 10 == 0) {
-                pretty_print(t, x, y, v, slope, 150 - watt_needed);
-            }
-
-
-            // update checkpoint and slope if necessary.
-            if (x > (chkpoint+1)->x) {
-                chkpoint++;
-                slope = current_slope(chkpoint);
-            }
-
-            // halts simulation if v becomes negative
-            if (v < 0.0) {
-                cout << "Your bicycle started going backwards! \n";
-                break;
-            }
+        if (realtime) {
+            std::this_thread::sleep_for(\
+                std::chrono::milliseconds((int)(dt / 0.001)));
         }
 
-        return t;
+        x += v * dt;
+        y = (slope * (x - chkpoint->x)) + chkpoint->y;
+        v += a * dt;
+
+        double watt_needed = watt_kmh(v * 3.6, slope, mass);
+        a = (v >= 1.5)? \
+            (power - watt_needed) / (v * mass) : 1; // m/s^2
+
+        // note that dt / 100 is for eliminating rounding error.
+        if (verbose && (int) (t + (dt / 100)) > last_printed_int_time) {
+            pretty_print(t, x, y, v, slope, 150 - watt_needed);
+            last_printed_int_time = (int) (t + (dt / 100));
+        }
+
+
+        // update checkpoint and slope if necessary.
+        if (x > (chkpoint+1)->x) {
+            chkpoint++;
+            slope = current_slope(chkpoint);
+        }
+
+        // halts simulation if v becomes negative
+        if (v < 0.0) {
+            cout << "Your bicycle started going backwards! \n";
+            break;
+        }
+    }
+
+    int integral_time = (int) (t+0.0001);
+    cout << "\n\nTime to finish: ";
+
+    if (integral_time >= 3600) {
+        cout << integral_time / 3600 << " hr ";
+    } 
+
+    if (integral_time >= 3600 || integral_time % 3600 > 60) {
+        cout << (integral_time % 3600) / 60 << " min "; 
+    }
+
+    cout << integral_time % 60 << " sec \n\n" << endl;
+
+    return t;
 }
 
 
@@ -236,5 +239,5 @@ int main(int argc, char *argv[]) {
     }
 
 
-    simulate(p, power, mass, precision, verbose);
+    simulate(p, power, mass, precision, verbose, realtime);
 }
