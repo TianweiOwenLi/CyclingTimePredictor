@@ -133,7 +133,7 @@ double simulate(path p, double power, double mass, double dt, bool verbose, \
          * when bicycle has near-zero speed, we cannot logically maintain 
          * the average power, because that would imply unbounded acceleration. 
         */
-        a = (v >= 1.5)? (power - watt_needed) / (v * mass) : 1; // m/s^2
+        a = (power - watt_needed) / (std::max(v, 1.5) * mass); 
 
         /* note that dt / 100 is for eliminating rounding error. */
         if (verbose && (int) (t + (dt * epsilon)) > last_printed_int_time) {
