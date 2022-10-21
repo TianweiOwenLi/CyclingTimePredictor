@@ -4,9 +4,6 @@
 #include <assert.h>
 #include <list>
 #include <vector>
-#include <bitset>
-#include <random>
-#include <complex>
 #include <algorithm>
 #include <functional>
 #include <cmath>
@@ -37,7 +34,7 @@ typedef struct {
 typedef vector<datapoint> path; // duplicate x not allowed. x must be sorted.
 
 double watt_kmh(double kmh, double slope, double mass) {
-    double resistance = 3.1 * kmh + 0.0065 * kmh * kmh * kmh;
+    double resistance = 3.1 * (mass / 90.0) * kmh + 0.0065 * kmh * kmh * kmh;
     double climbpower = (kmh / 3.6) * slope * mass * 9.81;
     return resistance + climbpower;
 }
@@ -70,9 +67,9 @@ int simulate(path p, double power, double mass, double dt, bool verbose) {
                 (power - watt_needed) / (v * mass) : 1; // m/s^2
 
             if (verbose && (print_counter++) % 10 == 0) {
-                cout << "x: " << x << "  v: " << v << "  a: " << a << \
-                "  slope: " << slope/100.0 << "%  t: " \
-                << t << "  watt needed: " << watt_needed << endl;
+                cout << "x: " << x << "  v: " << v << \
+                "  slope: " << slope*100 << "%  t: " \
+                << t << "  d_watt: " << watt_needed << endl;
             }
 
 
@@ -97,27 +94,42 @@ int simulate(path p, double power, double mass, double dt, bool verbose) {
  * Prints help message.
 */
 void print_help_msg() {
-    cout << "Usage: ./bikesim DATA_FILE WATT TIME_PRECISION [OPTION]" << endl;
+    cout << "Usage: ./bikesim DATA_FILE POWER MASS PRECISION [OPTION]\n\n";
     cout << "Reads pairs of (location, height) pairs from the input file, as \n"
             "well as the specified average cycling wattage, and precision of \n"
             "simulation in terms of elapsed seconds per step, and returns \n"
             "the estimated time in seconds required to finish such a trip. \n";
     cout << "\nOptions:\n";
     cout << "  -v \t enable verbose mode, prints data during simulation.\n";
-    cout << "  -r \t realtime mode, inserts a delay between each simulation "
-            "steps, so that the simulation becomes real-time. This flag will "
-            "automatically enable verbose mode. Warning: c++ built-in function "
-            "for timed thread sleeps have limited accuracy, therefore the "
-            "simulation may not be quite real-time when precision is high.\n";
-    cout << "  -h \t prints this help message. ";
+    cout << "  -r \t realtime mode, inserts a delay between each simulation \n"
+            "     \t   steps, so that the simulation becomes real-time. This \n"
+            "     \t   flag automatically enables verbose mode. Warning: c++ \n"
+            "     \t   builtin function for timed thread sleeps have limited \n"
+            "     \t   ccuracy, therefore the simulation may not be quite \n"
+            "     \t   real-time when precision is high.\n";
+    cout << "  -h \t prints this help message. \n";
 }
 
 
 int main(int argc, char *argv[]) {
-    
+
+    cout << "args dbg: \n";
+    for (int i = 1; i < argc; i++) {
+        cout << i << ": " << argv[i] << ", ";
+    }
+    cout << endl;
+
+   
+
     
     // parse required arguments
-    if (argc < 4) {
+    if (argc < 5) {
+        for (int i = 1; i <= argc; i++) {
+            if (string(argv[i]) == "-h") {
+                print_help_msg();
+                return 0;
+            }
+        }
         cout << "Too few arguments! \n";
         return 1;
     }
@@ -145,14 +157,20 @@ int main(int argc, char *argv[]) {
     }
 
     double power{strtod(argv[2], NULL)};
-    if (power <= 0.0) {
-        cout << "Error: average pedaling wattage must be positive! \n";
+    if (power <= 25.0) {
+        cout << "Error: average pedaling wattage too small! \n";
         return 1;
     }
 
-    double precision{strtod(argv[3], NULL)};
-    if (precision <= 0.0) {
-        cout << "Error: time precision has to be positive! \n";
+    double mass{strtod(argv[3], NULL)};
+    if (mass <= 30.0) {
+        cout << "Error: mass too small! \n";
+        return 1;
+    }
+
+    double precision{strtod(argv[4], NULL)};
+    if (precision <= 1.0e-6) {
+        cout << "Error: precision too small or negative! \n";
         return 1;
     }
 
@@ -161,7 +179,7 @@ int main(int argc, char *argv[]) {
     char opt;
     bool verbose = false;
     bool realtime = false;
-    while ((opt = getopt(argc, argv, "v:r:h")) != -1) {
+    while ((opt = getopt(argc, argv, "vrh")) != -1) {
         switch (opt) {
             
             case 'v':
@@ -184,5 +202,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    simulate(p, power, 90, precision, verbose);
+
+    simulate(p, power, mass, precision, verbose);
 }
