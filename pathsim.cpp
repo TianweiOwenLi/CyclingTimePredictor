@@ -22,6 +22,12 @@ using std::vector;
 using std::pair;
 using std::function;
 
+
+const double epsilon{ 0.001 };
+const double gravity{ 9.81 };
+const int format_len{6};
+
+
 typedef struct {
     double x;
     double y;
@@ -44,7 +50,7 @@ typedef vector<datapoint> path; // duplicate x not allowed. x must be sorted.
 */
 double watt_kmh(double kmh, double slope, double mass) {
     double resistance = 3.1 * (mass / 90.0) * kmh + 0.0065 * kmh * kmh * kmh;
-    double climbpower = (kmh / 3.6) * slope * mass * 9.81;
+    double climbpower = (kmh / 3.6) * slope * mass * gravity;
     return resistance + climbpower;
 }
 
@@ -57,13 +63,12 @@ double current_slope(path::iterator pathit) { // end() - 1 not allowed
 
 
 inline string numfmt(double x) {
-    const int precision{6};
     string s = std::to_string(x);
     if (x >= 0.0) s = "+" + s;
-    if (s.length() < precision) {
+    if (s.length() < format_len) {
         s += string(8 - s.length(), '0');
     } else {
-        s = s.substr(0, precision);
+        s = s.substr(0, format_len);
     }
 
     return s;
@@ -106,7 +111,7 @@ double simulate(path p, double power, double mass, double dt, bool verbose, \
         /* delay for realtime simulation */
         if (realtime) {
             std::this_thread::sleep_for(\
-                std::chrono::milliseconds((int)(dt / 0.001)));
+                std::chrono::milliseconds((int)(dt * 1000)));
         }
 
         x += v * dt;
@@ -131,9 +136,9 @@ double simulate(path p, double power, double mass, double dt, bool verbose, \
         a = (v >= 1.5)? (power - watt_needed) / (v * mass) : 1; // m/s^2
 
         /* note that dt / 100 is for eliminating rounding error. */
-        if (verbose && (int) (t + (dt / 100)) > last_printed_int_time) {
-            pretty_print(t, x, y, v, slope, 150 - watt_needed);
-            last_printed_int_time = (int) (t + (dt / 100));
+        if (verbose && (int) (t + (dt * epsilon)) > last_printed_int_time) {
+            pretty_print(t, x, y, v, slope, power - watt_needed);
+            last_printed_int_time = (int) (t + (dt * epsilon));
         }
 
         /* updates checkpoint and slope */
@@ -150,7 +155,7 @@ double simulate(path p, double power, double mass, double dt, bool verbose, \
     }
 
     /* pretty-print hours, minutes, and seconds */
-    int integral_time = (int) (t+0.0001);
+    int integral_time = (int) (t + epsilon);
     cout << "\n\nTime to finish: ";
 
     if (integral_time >= 3600) {
