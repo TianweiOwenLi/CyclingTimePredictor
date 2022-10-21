@@ -4,12 +4,9 @@
 #include <sstream>
 
 #include <assert.h>
-#include <list>
 #include <vector>
 #include <queue>
-#include <algorithm>
 #include <functional>
-#include <cmath>
 #include <string>
 
 #include <chrono>
@@ -24,10 +21,6 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::function;
-using std::min;
-using std::max;
-#define dbg(x) std::cout<<#x<<" = "<<x<<'\n'
-#define mp(x,y) std::make_pair(x,y)
 
 typedef struct {
     double x;
@@ -36,6 +29,19 @@ typedef struct {
 
 typedef vector<datapoint> path; // duplicate x not allowed. x must be sorted.
 
+/**
+ * Calculates the required power (in watts) to maintain some given speed.
+ * 
+ * Note that the resistance formula contains a 1st-order and a 3rd-order term. 
+ * First order term takes account of friction, while third order term takes 
+ * account of air resistance.
+ * 
+ * @param kmh the speed of bicycle, in km/h.
+ * @param slope slope at current location, in percentage. 
+ * @param mass the combined mass of rider + cargo + bicycle, in kg.
+ * 
+ * @return a double indicating required power in watts.
+*/
 double watt_kmh(double kmh, double slope, double mass) {
     double resistance = 3.1 * (mass / 90.0) * kmh + 0.0065 * kmh * kmh * kmh;
     double climbpower = (kmh / 3.6) * slope * mass * 9.81;
@@ -74,6 +80,18 @@ void pretty_print(double t, double x, double y, double v, double slope, \
 }
 
 
+/**
+ * Simulates the behavior of a bicycle. 
+ * 
+ * @param p a sequence of (location, altitude) points along some cycling path.
+ * @param power a double indicating the rider's average power output in watts.
+ * @param mass the combined mass of rider + cargo + bicycle, in kg.
+ * @param dt the time increment per simulation step.
+ * @param verbose a boolean indicating whether to print simulation details.
+ * @param realtime a boolean indicating simulation with realtime delays.
+ * 
+ * @return a double indicating time in seconds to finish the path.
+*/
 double simulate(path p, double power, double mass, double dt, bool verbose, \
         bool realtime) {
 
@@ -85,6 +103,7 @@ double simulate(path p, double power, double mass, double dt, bool verbose, \
 
     for (;chkpoint + 1 != p.end(); t += dt) {
 
+        /* delay for realtime simulation */
         if (realtime) {
             std::this_thread::sleep_for(\
                 std::chrono::milliseconds((int)(dt / 0.001)));
@@ -95,29 +114,42 @@ double simulate(path p, double power, double mass, double dt, bool verbose, \
         v += a * dt;
 
         double watt_needed = watt_kmh(v * 3.6, slope, mass);
-        a = (v >= 1.5)? \
-            (power - watt_needed) / (v * mass) : 1; // m/s^2
 
-        // note that dt / 100 is for eliminating rounding error.
+        /*
+         * this is a tricky formula, but we can think about it this way: 
+         * suppose you are traveling at a certain velocity and slope, and you 
+         * can output 150 watts, while only 120 watts are required to maintain 
+         * your current speed. Then the extra 30 watts can be used instead to 
+         * accelerate the bicycle, and since watt = newton * m/s, we can 
+         * calculate the acceleration of bicycle this way. Similarly, a deficit 
+         * in wattage will have to be compensated by deceleration, and the 
+         * calculation is isomorphic. 
+         * 
+         * when bicycle has near-zero speed, we cannot logically maintain 
+         * the average power, because that would imply unbounded acceleration. 
+        */
+        a = (v >= 1.5)? (power - watt_needed) / (v * mass) : 1; // m/s^2
+
+        /* note that dt / 100 is for eliminating rounding error. */
         if (verbose && (int) (t + (dt / 100)) > last_printed_int_time) {
             pretty_print(t, x, y, v, slope, 150 - watt_needed);
             last_printed_int_time = (int) (t + (dt / 100));
         }
 
-
-        // update checkpoint and slope if necessary.
+        /* updates checkpoint and slope */
         if (x > (chkpoint+1)->x) {
             chkpoint++;
             slope = current_slope(chkpoint);
         }
 
-        // halts simulation if v becomes negative
+        /* halts simulation if v becomes negative */
         if (v < 0.0) {
             cout << "Your bicycle started going backwards! \n";
             break;
         }
     }
 
+    /* pretty-print hours, minutes, and seconds */
     int integral_time = (int) (t+0.0001);
     cout << "\n\nTime to finish: ";
 
@@ -135,9 +167,6 @@ double simulate(path p, double power, double mass, double dt, bool verbose, \
 }
 
 
-/**
- * Prints help message.
-*/
 void print_help_msg() {
     cout << "Usage: ./bikesim DATA_FILE POWER MASS PRECISION [OPTION]\n\n";
     cout << "Reads pairs of (location, height) pairs from the input file, as \n"
@@ -158,7 +187,7 @@ void print_help_msg() {
 
 int main(int argc, char *argv[]) {
     
-    // parse required arguments
+    /* parse required arguments */
     if (argc < 5) {
         for (int i = 1; i <= argc; i++) {
             if (string(argv[i]) == "-h") {
@@ -211,7 +240,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    // parses options
+    /* parses options */
     char opt;
     bool verbose = false;
     bool realtime = false;
