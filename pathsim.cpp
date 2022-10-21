@@ -7,6 +7,7 @@
 #include <vector>
 #include <queue>
 #include <functional>
+#include <algorithm>
 #include <string>
 
 #include <chrono>
@@ -186,6 +187,7 @@ void print_help_msg() {
             "     \t   builtin function for timed thread sleeps have limited \n"
             "     \t   ccuracy, therefore the simulation may not be quite \n"
             "     \t   real-time when precision is high.\n";
+    cout << "  -b \t reverse the path, simulates cycling backwards. \n";
     cout << "  -h \t prints this help message. " << endl;
 }
 
@@ -255,7 +257,8 @@ int main(int argc, char *argv[]) {
     char opt;
     bool verbose = false;
     bool realtime = false;
-    while ((opt = getopt(argc, argv, "vrh")) != -1) {
+    bool backwards = false; 
+    while ((opt = getopt(argc, argv, "vrbh")) != -1) {
         switch (opt) {
             
             case 'v':
@@ -267,6 +270,10 @@ int main(int argc, char *argv[]) {
                 realtime = true;
                 break;
 
+            case 'b':
+                backwards = true;
+                break;
+
             case 'h':
                 print_help_msg();
                 return 0;
@@ -275,6 +282,15 @@ int main(int argc, char *argv[]) {
                 printf("bikesim: invalid option -%c. \nTry "
                        "\'bikesim -h\' for usage. \n", opt);
                 return 1;
+        }
+    }
+
+    /* reversing path */
+    if (backwards) {
+        int max_x = p.back().x;
+        std::reverse(p.begin(), p.end());
+        for (auto it = p.begin(); it < p.end(); it++) {
+            it->x = max_x - it->x;
         }
     }
 
